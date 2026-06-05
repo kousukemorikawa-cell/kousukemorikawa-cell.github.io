@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>ハウスブロックモデル ブロック表示版 v12</title>
+<title>ハウスブロックモデル ブロック表示版 v15</title>
 <style>
   :root{
     --bg:#f7f4ed;--panel:#fffaf0;--ink:#2f2a24;--line:#5c544b;--accent:#6b8f71;--claim:#f9d77e;--reason:#cfe2f3;--final:#f4a261;--connector:#e5e5e5;
@@ -36,7 +36,7 @@
   .block.wall .full{text-align:left;font-size:12px}
   .block.wall.showFull{min-width:100px}
   .block.claim.wall{border-radius:18px}
-  .block:active{cursor:grabbing}.block.selected{outline:4px solid #6b8f7166}.block.reason{background:var(--reason)}.block.claim{background:var(--claim)}
+  .block:active{cursor:grabbing}.block.selected{outline:4px solid #6b8f7166}.block.unlinkPicked{outline:5px solid #e53935!important;box-shadow:0 0 0 6px #e5393533,0 4px 10px #0002!important}.block.unlinkPicked .badge{background:#e53935;color:white}.block.unlinkModeHover{cursor:pointer}.block.reason{background:var(--reason)}.block.claim{background:var(--claim)}
   .block.c0{background:#ffffff!important}.block.c1{background:#bbf7d0!important}.block.c2{background:#bfdbfe!important}.block.c3{background:#fde68a!important}
   .block.final{background:transparent!important;border:none;box-shadow:none;width:190px;height:130px;padding:34px 18px 10px 18px;font-weight:700;resize:none;overflow:visible;min-width:140px;min-height:105px;display:flex;align-items:center;justify-content:center;text-align:center}
   .block.final::before{content:"";position:absolute;inset:0;background:var(--final);clip-path:polygon(50% 0,100% 100%,0 100%);z-index:-1}
@@ -177,13 +177,31 @@
   .badge{z-index:4;}
   .short,.full{position:relative;z-index:3;}
 
+  /* ===== v14 接続解除モード修正 ===== */
+  .block.unlinkPicked,
+  .block.unlinkPicked.selected,
+  .block.unlinkPicked.role-claim,
+  .block.unlinkPicked.role-reason{
+    outline:6px solid #e53935!important;
+    box-shadow:0 0 0 7px #e5393533, inset 0 -5px 0 #00000014,0 3px 0 #00000020,0 6px 12px #00000018!important;
+  }
+  .block.unlinkPicked .badge{background:#e53935!important;color:#fff!important;}
+  .block.unlinkModeHover{cursor:pointer!important;}
+  .unlink-active{
+    background:#e53935!important;
+    color:#fff!important;
+    border-color:#a82424!important;
+  }
+
 </style>
 </head>
 <body>
 <header>
-  <h1>ハウスブロックモデル｜ブロック表示版 v11</h1>
+  <h1>ハウスブロックモデル｜ブロック表示版 v15</h1>
   <button class="primary" id="addBlock">ブロック追加</button>
   <button id="addLink">接続する</button>
+  <button id="unlinkSelect">接続解除を選ぶ</button>
+  <button id="unlinkDo" class="danger">選んだ接続を解除</button>
   <button id="chainModeBtn">連鎖させる：OFF</button>
   <button id="toggleAll">全文/下線部 切替</button>
   <button id="autoHouse">家っぽく整列</button>
@@ -199,7 +217,8 @@
       2. 右の作業場でブロックをクリック<br>
       3. 下線部表示・全文・種類を編集<br>
       4. 「接続する」→根拠ブロック→主張ブロックの順にクリック<br>
-      5. 「連鎖させる」をONにすると、接続関係から「主張1A/根拠2A」のように自動表示<br>
+      5. 接続を消す時は「接続解除を選ぶ」→ブロック2個をクリック→「選んだ接続を解除」<br>
+      6. 「連鎖させる」をONにすると、接続関係から「主張1A/根拠2A」のように自動表示<br>
       ※ブロック同士をぴったり重ねると、接している面の丸い突起が消えます。スクショすればロイロノートに提出できます。
     </div>
     <div class="field"><label>種類</label><select id="type"><option value="reason">根拠ブロック（壁・床）</option><option value="claim">主張ブロック（窓・ドア・照明）</option><option value="final">最終主張（屋根）</option></select></div>
@@ -210,13 +229,14 @@
     <div class="toolbar"><button id="applyEdit" class="primary">反映</button><button id="deleteBlock">選択ブロック削除</button></div>
     <div class="field"><label>接続線の説明（選択中の接続）</label><input id="linkLabel" placeholder="例：孤独が不安を生むから" /></div>
     <div class="toolbar"><button id="applyLinkLabel">線の説明を反映</button><button id="deleteLink">選択した線を削除</button></div>
-    <p class="muted">接続線は、根拠→主張の向きで作る想定です。ブロックをダブルクリックすると、そのブロックだけ全文/下線部が切り替わります。ブロック右下のつまみをドラッグすると、大きさを変えられます。</p>
+    <div class="toolbar"><button id="unlinkSelectSide">接続解除を選ぶ</button><button id="unlinkDoSide" class="danger">選んだ接続を解除</button></div>
+    <p class="muted">接続解除は、2つのブロックを赤く選んでから解除します。接続線は、根拠→主張の向きで作る想定です。ブロックをダブルクリックすると、そのブロックだけ全文/下線部が切り替わります。ブロック右下のつまみをドラッグすると、大きさを変えられます。</p>
   </aside>
   <main><div id="canvas"><div id="chainNote" class="chainNote">連鎖モード ON：接続関係と位置から「主張／根拠」を自動表示</div><svg id="wires"></svg></div></main>
 </div>
 <div class="modal" id="modal"><div class="modal-inner"><h3 id="modalTitle">保存データ</h3><p class="muted">コピーして保存、または貼り付けて読み込みできます。</p><textarea id="dataBox"></textarea><div class="toolbar"><button id="modalOk" class="primary">OK</button><button id="modalClose">閉じる</button></div></div></div>
 <script>
-let blocks=[], links=[], selectedBlock=null, selectedLink=null, linkMode=false, linkStart=null, showAll=false, chainMode=false;
+let blocks=[], links=[], selectedBlock=null, selectedLink=null, linkMode=false, linkStart=null, unlinkMode=false, unlinkPicked=[], showAll=false, chainMode=false;
 const GRID=24, BLOCK_UNIT=96;
 const canvas=document.getElementById('canvas'), svg=document.getElementById('wires');
 const $=id=>document.getElementById(id);
@@ -246,8 +266,8 @@ function buildStuds(b){
   return html;
 }
 function addBlock(data={}){const b={id:uid(),type:data.type||'reason',shape:data.shape||'floor',color:data.color||'c1',short:data.short||'新しいブロック',full:data.full||'',x:data.x??72,y:data.y??72,w:data.w||null,h:data.h||null};normalizeBlock(b);blocks.push(b);render();selectBlock(b.id)}
-function render(){document.querySelectorAll('.block').forEach(e=>e.remove());blocks.forEach(b=>{normalizeBlock(b);const el=document.createElement('div');el.className='block '+b.type+' '+(b.color||'c0')+' '+(b.type==='final'?'':(b.shape||'floor'))+(selectedBlock===b.id?' selected':'')+(showAll?' showFull':'')+chainRoleClass(b)+contactClass(b);el.dataset.id=b.id;el.style.left=b.x+'px';el.style.top=b.y+'px';el.style.width=b.w+'px';el.style.height=b.h+'px';el.innerHTML=`${buildStuds(b)}<span class="badge">${chainBadge(b)}</span><span class="short">${esc(b.short||'(未入力)')}</span><span class="full">${esc(b.full||b.short||'(未入力)')}</span><span class="resizer"></span>`;canvas.appendChild(el);customResize(el,b);drag(el,b);el.onclick=e=>{e.stopPropagation(); rememberBlockSize(el,b); if(linkMode){handleLinkClick(b.id)} else selectBlock(b.id)};el.ondblclick=e=>{e.stopPropagation();rememberBlockSize(el,b);el.classList.toggle('showFull')};});drawLinks()}
-function labelType(t){return {reason:'根拠',claim:'主張',final:'屋根'}[t]||t}
+function render(){document.querySelectorAll('.block').forEach(e=>e.remove());blocks.forEach(b=>{normalizeBlock(b);const el=document.createElement('div');el.className='block '+b.type+' '+(b.color||'c0')+' '+(b.type==='final'?'':(b.shape||'floor'))+(selectedBlock===b.id?' selected':'')+(unlinkPicked.includes(b.id)?' unlinkPicked':'')+(unlinkMode?' unlinkModeHover':'')+(showAll?' showFull':'')+chainRoleClass(b)+contactClass(b);el.dataset.id=b.id;el.style.left=b.x+'px';el.style.top=b.y+'px';el.style.width=b.w+'px';el.style.height=b.h+'px';el.innerHTML=`${buildStuds(b)}<span class="badge">${chainBadge(b)}</span><span class="short">${esc(b.short||'(未入力)')}</span><span class="full">${esc(b.full||b.short||'(未入力)')}</span><span class="resizer"></span>`;canvas.appendChild(el);customResize(el,b);drag(el,b);el.onclick=e=>{e.stopPropagation(); rememberBlockSize(el,b); if(linkMode){handleLinkClick(b.id)} else if(unlinkMode){handleUnlinkPick(b.id)} else selectBlock(b.id)};el.ondblclick=e=>{e.stopPropagation();rememberBlockSize(el,b);el.classList.toggle('showFull')};});drawLinks()}
+function labelType(t){return {reason:'根拠',claim:'主張',final:'主張'}[t]||t}
 function isUpper(a,b){return blockCenterY(a) < blockCenterY(b)}
 function roleInfo(b){
   if(!chainMode)return {claim:false,reason:false};
@@ -349,7 +369,7 @@ function rectGuess(b){
 
 function esc(s){return String(s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}
 function selectBlock(id){selectedBlock=id;selectedLink=null;const b=blocks.find(x=>x.id===id);if(b){$('type').value=b.type;$('shape').value=b.shape||'floor';$('color').value=b.color||'c0';$('shortText').value=b.short;$('fullText').value=b.full;$('linkLabel').value=''}render()}
-canvas.onclick=()=>{selectedBlock=null;selectedLink=null;render();}
+canvas.onclick=()=>{selectedBlock=null;selectedLink=null;if(!unlinkMode){unlinkPicked=[];}render();}
 function isResizeCorner(e,el){const r=el.getBoundingClientRect();return (r.right-e.clientX<22 && r.bottom-e.clientY<22)}
 function rememberBlockSize(el,b){
   if(!el||!b)return;
@@ -386,7 +406,7 @@ function customResize(el,b){
     };
   };
 }
-function drag(el,b){let ox,oy,down=false;el.onmousedown=e=>{if(linkMode||isResizeCorner(e,el))return;down=true;ox=e.clientX-b.x;oy=e.clientY-b.y;document.onmousemove=ev=>{if(!down)return;b.x=snapTo(ev.clientX-ox);b.y=snapTo(ev.clientY-oy);el.style.left=b.x+'px';el.style.top=b.y+'px';drawLinks()};document.onmouseup=()=>{down=false;b.x=snapTo(b.x);b.y=snapTo(b.y);document.onmousemove=null;document.onmouseup=null;render()};}}
+function drag(el,b){let ox,oy,down=false;el.onmousedown=e=>{if(linkMode||unlinkMode||isResizeCorner(e,el))return;down=true;ox=e.clientX-b.x;oy=e.clientY-b.y;document.onmousemove=ev=>{if(!down)return;b.x=snapTo(ev.clientX-ox);b.y=snapTo(ev.clientY-oy);el.style.left=b.x+'px';el.style.top=b.y+'px';drawLinks()};document.onmouseup=()=>{down=false;b.x=snapTo(b.x);b.y=snapTo(b.y);document.onmousemove=null;document.onmouseup=null;render()};}}
 function rectOf(b){
   const el=document.querySelector(`[data-id="${b.id}"]`);
   if(!el)return {x:b.x,y:b.y,w:b.w||140,h:b.h||70};
@@ -411,18 +431,66 @@ function drawLinks(){
     const line=document.createElementNS('http://www.w3.org/2000/svg','line');
     line.setAttribute('x1',p1.x);line.setAttribute('y1',p1.y);line.setAttribute('x2',p2.x);line.setAttribute('y2',p2.y);
     line.setAttribute('class','wire');
-    line.style.stroke=selectedLink===i?'#c44':'#5c544b';
+    const unlinkTarget = unlinkPicked.length===2 && ((l.from===unlinkPicked[0]&&l.to===unlinkPicked[1])||(l.from===unlinkPicked[1]&&l.to===unlinkPicked[0]));
+    line.style.strokeWidth=unlinkTarget?'10':'8';
+    line.style.stroke=unlinkTarget?'#e53935':(selectedLink===i?'#c44':'#5c544b');
     line.onclick=e=>{e.stopPropagation();selectedLink=i;selectedBlock=null;$('linkLabel').value=l.label||'';render()};
     line.style.pointerEvents='stroke';
     svg.appendChild(line);
     if(l.label){const text=document.createElementNS('http://www.w3.org/2000/svg','text');text.setAttribute('x',(p1.x+p2.x)/2);text.setAttribute('y',(p1.y+p2.y)/2-8);text.setAttribute('class','wire-label');text.textContent=l.label;svg.appendChild(text)}
   })
 }
+
+function updateUnlinkButtons(){
+  const label=unlinkMode?'接続解除選択中':'接続解除を選ぶ';
+  ['unlinkSelect','unlinkSelectSide'].forEach(id=>{
+    const btn=$(id);
+    if(btn){
+      btn.textContent=label;
+      btn.classList.toggle('unlink-active', unlinkMode);
+    }
+  });
+  const doLabel=unlinkPicked.length===2?'この2つの接続を解除':'選んだ接続を解除';
+  ['unlinkDo','unlinkDoSide'].forEach(id=>{
+    const btn=$(id);
+    if(btn) btn.textContent=doLabel;
+  });
+}
+function setUnlinkMode(on){
+  unlinkMode=on;
+  if(on){linkMode=false;linkStart=null;$('addLink').textContent='接続する';selectedBlock=null;selectedLink=null;}
+  else{unlinkPicked=[];}
+  updateUnlinkButtons();
+  render();
+}
+function handleUnlinkPick(id){
+  if(unlinkPicked.includes(id)) unlinkPicked=unlinkPicked.filter(x=>x!==id);
+  else{
+    if(unlinkPicked.length>=2) unlinkPicked=[];
+    unlinkPicked.push(id);
+  }
+  updateUnlinkButtons();
+  render();
+}
+function removePickedLink(){
+  if(unlinkPicked.length!==2){alert('接続を解除したいブロックを2つ赤くしてください');return;}
+  const [a,b]=unlinkPicked;
+  const before=links.length;
+  links=links.filter(l=>!((l.from===a&&l.to===b)||(l.from===b&&l.to===a)));
+  const removed=before-links.length;
+  if(!removed){alert('この2つのブロックの間には接続がありません');return;}
+  unlinkPicked=[];unlinkMode=false;selectedLink=null;selectedBlock=null;updateUnlinkButtons();render();
+}
+
 function handleLinkClick(id){if(!linkStart){linkStart=id;alert('接続先の主張ブロックをクリックしてください')}else if(linkStart!==id){links.push({from:linkStart,to:id,label:''});linkMode=false;linkStart=null;$('addLink').textContent='接続する';render()} }
 $('addBlock').onclick=()=>addBlock();
 $('applyEdit').onclick=()=>{if(!selectedBlock)return;rememberSelectedSize();const b=blocks.find(x=>x.id===selectedBlock);b.type=$('type').value;b.shape=$('shape').value;b.color=$('color').value;b.short=$('shortText').value;b.full=$('fullText').value;render()};
 $('deleteBlock').onclick=()=>{if(!selectedBlock)return;blocks=blocks.filter(b=>b.id!==selectedBlock);links=links.filter(l=>l.from!==selectedBlock&&l.to!==selectedBlock);selectedBlock=null;render()};
-$('addLink').onclick=()=>{linkMode=!linkMode;linkStart=null;$('addLink').textContent=linkMode?'接続中…解除':'接続する'};
+$('addLink').onclick=()=>{linkMode=!linkMode;linkStart=null;if(linkMode){unlinkMode=false;unlinkPicked=[];}updateUnlinkButtons();$('addLink').textContent=linkMode?'接続中…解除':'接続する';render()};
+$('unlinkSelect').onclick=()=>setUnlinkMode(!unlinkMode);
+$('unlinkDo').onclick=()=>removePickedLink();
+$('unlinkSelectSide').onclick=()=>setUnlinkMode(!unlinkMode);
+$('unlinkDoSide').onclick=()=>removePickedLink();
 $('chainModeBtn').onclick=()=>{chainMode=!chainMode;$('chainModeBtn').textContent=chainMode?'連鎖させる：ON':'連鎖させる：OFF';$('chainNote').classList.toggle('on',chainMode);render()};
 $('toggleAll').onclick=()=>{showAll=!showAll;render()};
 $('applyLinkLabel').onclick=()=>{if(selectedLink===null)return;links[selectedLink].label=$('linkLabel').value;render()};
@@ -433,11 +501,20 @@ $('exportBtn').onclick=()=>{openModal('保存データ',JSON.stringify({blocks,l
 $('importBtn').onclick=()=>{openModal('読み込み','', 'import')};
 function openModal(title,text,mode){$('modalTitle').textContent=title;$('dataBox').value=text;$('modal').style.display='flex';$('modalOk').onclick=()=>{if(mode==='import'){try{const d=JSON.parse($('dataBox').value);blocks=(d.blocks||[]).map(b=>{const nb={...b,type:b.type==='connector'?'reason':b.type};normalizeBlock(nb);return nb});links=d.links||[];render();$('modal').style.display='none'}catch(e){alert('読み込みに失敗しました')}}else{$('dataBox').select();document.execCommand('copy');alert('コピーしました')}}}
 $('modalClose').onclick=()=>$('modal').style.display='none';
-addBlock({type:'reason',shape:'wall',color:'c2',short:'近代社会では共同体が崩壊',full:'近代社会では、宗教は衰退し、共同体は崩壊している。',x:72,y:336});
-addBlock({type:'reason',shape:'wall',color:'c1',short:'人々は孤独と不安に直面',full:'そこで、人々は孤独を感じ、生きていることへの不安に直面する。',x:288,y:336});
-addBlock({type:'claim',shape:'floor',color:'c3',short:'家族は心理的拠り所',full:'この存在論的不安を解消する手段として、身近な家族が重要である。',x:192,y:192});
-addBlock({type:'final',color:'c3',short:'家族化するペット',full:'心理的拠り所としての家族の重要性が増す中で、ペットも家族化している。',x:216,y:48});
-links.push({from:blocks[0].id,to:blocks[2].id,label:'不安の背景'});links.push({from:blocks[1].id,to:blocks[2].id,label:'必要性'});links.push({from:blocks[2].id,to:blocks[3].id,label:'文章全体へ'});render();
+updateUnlinkButtons();
+
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape' && unlinkMode){
+    setUnlinkMode(false);
+  }
+});
+
+addBlock({type:'reason',shape:'wall',color:'c2',short:'知識が増える',full:'勉強をすると、言葉・計算・社会のしくみなどの知識が増える。',x:72,y:336});
+updateUnlinkButtons();
+addBlock({type:'reason',shape:'wall',color:'c1',short:'問題を解決しやすくなる',full:'知識や考え方を身につけると、新しい問題に出会ったときに解決方法を考えやすくなる。',x:288,y:336});
+addBlock({type:'claim',shape:'floor',color:'c3',short:'できることが増える',full:'勉強によって知識や考え方が身につくので、自分にできることが増える。',x:192,y:192});
+addBlock({type:'final',color:'c3',short:'勉強するべきである',full:'できることが増え、将来の選択肢も広がるため、私たちは勉強するべきである。',x:216,y:48});
+links.push({from:blocks[0].id,to:blocks[2].id,label:'材料になる'});links.push({from:blocks[1].id,to:blocks[2].id,label:'力になる'});links.push({from:blocks[2].id,to:blocks[3].id,label:'だから'});render();
 </script>
 </body>
 </html>
