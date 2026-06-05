@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ハウスブロックモデル ブロック表示版 v12</title>
+<style>
+  :root{
+    --bg:#f7f4ed;--panel:#fffaf0;--ink:#2f2a24;--line:#5c544b;--accent:#6b8f71;--claim:#f9d77e;--reason:#cfe2f3;--final:#f4a261;--connector:#e5e5e5;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Yu Gothic", "Hiragino Sans", system-ui, sans-serif;background:var(--bg);color:var(--ink)}
+  header{padding:12px 16px;background:#3c3a34;color:white;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  header h1{font-size:18px;margin:0 12px 0 0;font-weight:700}
+  button,select,input,textarea{font-family:inherit;font-size:14px}
+  button{border:1px solid #82786c;background:white;border-radius:8px;padding:7px 10px;cursor:pointer}
+  button:hover{filter:brightness(.96)}
+  .primary{background:var(--accent);color:white;border-color:var(--accent)}
+  .danger{background:#b65b5b;color:white;border-color:#b65b5b}
+  .layout{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 58px)}
+  aside{background:var(--panel);border-right:2px solid #ded6c8;padding:14px;overflow:auto}
+  main{position:relative;overflow:hidden}
+  .help{font-size:13px;line-height:1.55;background:#fff;border:1px solid #e1d8c8;border-radius:10px;padding:10px;margin-bottom:12px}
+  .field{margin:10px 0}.field label{display:block;font-size:12px;margin-bottom:4px;color:#5b5248}.field input,.field textarea,.field select{width:100%;border:1px solid #c9bda8;border-radius:8px;padding:7px;background:white}.field textarea{min-height:86px;resize:vertical}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.small{font-size:12px;padding:5px 8px}.muted{font-size:12px;color:#6d6258}
+  #canvas{position:absolute;inset:0;background-image:linear-gradient(#00000008 1px, transparent 1px),linear-gradient(90deg,#00000008 1px,transparent 1px);background-size:24px 24px}
+  svg#wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+  .block{position:absolute;min-width:70px;min-height:50px;border:2px solid #554b42;border-radius:8px;background:white;box-shadow:0 4px 10px #0002;z-index:2;cursor:grab;user-select:none;padding:8px 10px;text-align:center;display:flex;align-items:center;justify-content:center;white-space:pre-wrap;line-height:1.35;resize:none;overflow:hidden}
+  .block.role-claim{box-shadow:0 0 0 4px #d9770644,0 4px 10px #0002}
+  .block.role-reason{box-shadow:0 0 0 4px #2563eb33,0 4px 10px #0002}
+  .chainNote{position:absolute;right:10px;top:10px;z-index:4;background:#fffaf0;border:1px solid #c9bda8;border-radius:999px;padding:6px 10px;font-size:13px;box-shadow:0 3px 8px #0002;display:none}
+  .chainNote.on{display:block}
+  .block.floor{width:230px;min-height:74px}
+  .block.wall{width:88px;min-width:70px;min-height:120px;padding:14px 8px;writing-mode:vertical-rl;text-orientation:mixed;line-height:1.45}
+  .block.wall .badge{writing-mode:horizontal-tb;top:4px;left:4px;transform:none;transform-origin:center}
+  .block.wall .full{text-align:left;font-size:12px}
+  .block.wall.showFull{min-width:100px}
+  .block.claim.wall{border-radius:18px}
+  .block:active{cursor:grabbing}.block.selected{outline:4px solid #6b8f7166}.block.reason{background:var(--reason)}.block.claim{background:var(--claim)}
+  .block.c0{background:#ffffff!important}.block.c1{background:#bbf7d0!important}.block.c2{background:#bfdbfe!important}.block.c3{background:#fde68a!important}
+  .block.final{background:transparent!important;border:none;box-shadow:none;width:190px;height:130px;padding:34px 18px 10px 18px;font-weight:700;resize:none;overflow:visible;min-width:140px;min-height:105px;display:flex;align-items:center;justify-content:center;text-align:center}
+  .block.final::before{content:"";position:absolute;inset:0;background:var(--final);clip-path:polygon(50% 0,100% 100%,0 100%);z-index:-1}
+  .block.final .short,.block.final .full{position:relative;z-index:2;max-width:82%;margin-top:22px;line-height:1.25;word-break:break-word}
+  .resizer{position:absolute;right:2px;bottom:2px;width:14px;height:14px;cursor:nwse-resize;z-index:6;background:linear-gradient(135deg,transparent 50%,#6d6258 50%,#6d6258 60%,transparent 60%,transparent 70%,#6d6258 70%,#6d6258 80%,transparent 80%)}
+  .badge{position:absolute;top:4px;left:6px;background:#3c3a34;color:white;font-size:11px;line-height:1;border-radius:999px;padding:3px 7px;clip-path:none;z-index:5;white-space:nowrap;writing-mode:horizontal-tb;text-orientation:mixed;transform:none;pointer-events:none}.final .badge{top:72px;left:50%;transform:translateX(-50%);max-width:90%;overflow:visible}
+  .block .full{display:none}.block.showFull .short{display:none}.block.showFull .full{display:block;font-size:12px;text-align:left;font-weight:400}.block.final.showFull .full{text-align:center;font-size:11px;padding:0;max-width:78%}
+  .wire{stroke:var(--line);stroke-width:5;fill:none;stroke-linecap:square}.wire-label{font-size:12px;fill:#3c3a34;paint-order:stroke;stroke:white;stroke-width:4px;stroke-linejoin:round}
+  .modal{position:fixed;inset:0;background:#0008;display:none;align-items:center;justify-content:center;z-index:10}.modal-inner{background:white;border-radius:14px;width:min(680px,92vw);padding:16px}.modal textarea{width:100%;min-height:220px}
+  @media(max-width:800px){.layout{grid-template-columns:1fr}.layout aside{max-height:45vh;border-right:none;border-bottom:2px solid #ded6c8}main{height:55vh}}
+
+
+  /* ===== v10 ブロック表示デザイン ===== */
+  :root{
+    --bg:#f3efe7;--panel:#fff8e8;--ink:#26221d;--line:#6b6257;--accent:#7b61ff;
+    --claim:#ffcf63;--reason:#76b7ff;--final:#ff8a5c;--connector:#e9e1d6;
+    --stud:#ffffff66;--stud-shadow:#00000025;
+  }
+  body{background:linear-gradient(180deg,#f6f0e6,#ece3d5);}
+  header{background:#2f2a42;box-shadow:0 3px 0 #00000022}
+  button{border:2px solid #5f5577;border-radius:12px;box-shadow:0 3px 0 #00000022;background:#fffdf8;font-weight:700}
+  button:active{transform:translateY(2px);box-shadow:0 1px 0 #00000022}
+  .primary{background:#7b61ff;color:white;border-color:#5b46c7}
+  aside{background:#fff8e8;border-right:3px solid #d8c7ab}
+  .help,.field input,.field textarea,.field select,.modal-inner{border:2px solid #d8c7ab;border-radius:14px}
+  #canvas{background-color:#f8f4ed;background-image:radial-gradient(#00000012 1.5px,transparent 1.5px);background-size:24px 24px}
+
+  .block{
+    --block-color:#ffffff;
+    background:var(--block-color)!important;
+    border:3px solid #3d332b;
+    border-radius:10px;
+    box-shadow:inset 0 -7px 0 #00000018, 0 7px 0 #3d332b33, 0 10px 16px #00000025;
+    padding:20px 12px 10px;
+    overflow:visible;
+    font-weight:700;
+    color:#2b241e;
+    min-width:96px;
+    min-height:62px;
+  }
+  .block.c0{--block-color:#ffffff}.block.c1{--block-color:#79d98b!important}.block.c2{--block-color:#75b8ff!important}.block.c3{--block-color:#ffd25c!important}
+  .block.reason{--block-color:#75b8ff}.block.claim{--block-color:#ffd25c}.block.final{--block-color:#ff8a5c}
+  .block.final{
+    background:var(--block-color)!important;border:3px solid #3d332b;box-shadow:inset 0 -7px 0 #00000018,0 7px 0 #3d332b33,0 10px 16px #00000025;
+    width:230px;height:auto;min-height:78px;padding:22px 14px 12px;border-radius:10px;overflow:visible;
+  }
+  .block.final::before{display:none}
+  .block.final .short,.block.final .full{max-width:none;margin-top:0;line-height:1.25}
+  .block.floor{width:240px;min-height:76px}.block.wall{width:112px;min-width:96px;min-height:140px;padding:24px 10px 12px}
+  .block::before{
+    content:"";position:absolute;left:12px;right:12px;top:-16px;height:20px;z-index:-1;
+    background:
+      radial-gradient(circle at 12.5% 58%, var(--block-color) 0 9px, #3d332b 9px 11px, transparent 11px),
+      radial-gradient(circle at 37.5% 58%, var(--block-color) 0 9px, #3d332b 9px 11px, transparent 11px),
+      radial-gradient(circle at 62.5% 58%, var(--block-color) 0 9px, #3d332b 9px 11px, transparent 11px),
+      radial-gradient(circle at 87.5% 58%, var(--block-color) 0 9px, #3d332b 9px 11px, transparent 11px);
+    filter:drop-shadow(0 2px 0 #00000025);
+  }
+  .block.noStuds::before{display:none}
+  .block.connectedTop{border-top-left-radius:2px;border-top-right-radius:2px}
+  .block.connectedBottom{border-bottom-left-radius:2px;border-bottom-right-radius:2px;box-shadow:inset 0 -3px 0 #00000012,0 3px 0 #3d332b33,0 7px 12px #00000020}
+  .block.role-claim{outline:5px solid #ff9f1c66;box-shadow:inset 0 -7px 0 #00000018,0 7px 0 #3d332b33,0 10px 16px #00000025}
+  .block.role-reason{outline:5px solid #2b7cff55;box-shadow:inset 0 -7px 0 #00000018,0 7px 0 #3d332b33,0 10px 16px #00000025}
+  .block.selected{outline:5px solid #7b61ff99}
+  .badge{top:-6px;left:8px;background:#2f2a42;border:2px solid white;box-shadow:0 2px 0 #00000022;font-weight:700}
+  .final .badge{top:-8px;left:8px;transform:none}
+  .resizer{right:-2px;bottom:-2px;background:#2f2a42;border-radius:6px;border:2px solid white}
+  .wire{stroke:#6b6257;stroke-width:8;stroke-linecap:round;stroke-dasharray:0;filter:drop-shadow(0 2px 0 #00000022)}
+  .wire-label{font-weight:700;font-size:13px;stroke-width:5px}
+
+
+  /* ===== v11 点グリッド準拠ブロック ===== */
+  :root{--grid:24px;--stud-d:24px;--stud-h:14px;}
+  #canvas{
+    background-color:#f8f4ed;
+    background-image:radial-gradient(#00000024 2px,transparent 2px);
+    background-size:24px 24px;
+    background-position:0 0;
+  }
+  .block{
+    border-radius:2px;
+    border:2px solid #3b332c;
+    box-shadow:inset 0 -5px 0 #00000014,0 3px 0 #00000020,0 6px 12px #00000018;
+    padding:18px 10px 8px;
+    min-width:96px;
+    min-height:72px;
+  }
+  .block.floor{width:192px;min-height:72px;}
+  .block.wall{width:96px;min-width:96px;min-height:144px;padding:20px 8px 8px;}
+  .block.final{
+    width:192px;
+    min-height:96px;
+    border:none;
+    border-radius:0;
+    padding:34px 18px 14px;
+    background:transparent!important;
+    box-shadow:none;
+    overflow:visible;
+  }
+  .block.final::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:linear-gradient(180deg,#ffffff38 0%,transparent 38%),var(--block-color);
+    clip-path:polygon(50% 0,100% 100%,0 100%);
+    border:2px solid #3b332c;
+    box-shadow:inset 0 -5px 0 #00000014,0 3px 0 #00000020,0 6px 12px #00000018;
+    z-index:0;
+  }
+  .block.final .short,.block.final .full{
+    max-width:72%;
+    margin-top:24px;
+    text-align:center;
+    line-height:1.25;
+  }
+  .block.final .badge{
+    top:54px;
+    left:50%;
+    transform:translateX(-50%);
+  }
+  .block::before{display:none!important;}
+  .studs{position:absolute;left:0;right:0;top:-14px;height:16px;pointer-events:none;z-index:0;}
+  .stud{
+    position:absolute;top:0;width:24px;height:14px;transform:translateX(-12px);
+    background:linear-gradient(180deg,#ffffff55 0%,transparent 34%),var(--block-color);
+    border:2px solid #3b332c;border-bottom:none;
+    border-radius:12px 12px 3px 3px;
+    box-shadow:inset 0 3px 0 #ffffff55,0 2px 0 #00000024;
+  }
+  .stud::after{
+    content:"";position:absolute;left:5px;right:5px;top:3px;height:4px;
+    border-radius:50%;background:#ffffff45;
+  }
+  .block.noStuds .studs{display:none;}
+  .block.final .studs{display:none!important;}
+  .block.connectedTop{border-top-left-radius:2px;border-top-right-radius:2px;}
+  .block.connectedBottom{border-bottom-left-radius:2px;border-bottom-right-radius:2px;}
+  .badge{z-index:4;}
+  .short,.full{position:relative;z-index:3;}
+
+</style>
+</head>
+<body>
+<header>
+  <h1>ハウスブロックモデル｜ブロック表示版 v11</h1>
+  <button class="primary" id="addBlock">ブロック追加</button>
+  <button id="addLink">接続する</button>
+  <button id="chainModeBtn">連鎖させる：OFF</button>
+  <button id="toggleAll">全文/下線部 切替</button>
+  <button id="autoHouse">家っぽく整列</button>
+  <button id="exportBtn">保存データ</button>
+  <button id="importBtn">読み込み</button>
+  <button class="danger" id="clearBtn">全消去</button>
+</header>
+<div class="layout">
+  <aside>
+    <div class="help">
+      <b>使い方</b><br>
+      1. ブロックを追加する<br>
+      2. 右の作業場でブロックをクリック<br>
+      3. 下線部表示・全文・種類を編集<br>
+      4. 「接続する」→根拠ブロック→主張ブロックの順にクリック<br>
+      5. 「連鎖させる」をONにすると、接続関係から「主張1A/根拠2A」のように自動表示<br>
+      ※ブロック同士をぴったり重ねると、接している面の丸い突起が消えます。スクショすればロイロノートに提出できます。
+    </div>
+    <div class="field"><label>種類</label><select id="type"><option value="reason">根拠ブロック（壁・床）</option><option value="claim">主張ブロック（窓・ドア・照明）</option><option value="final">最終主張（屋根）</option></select></div>
+    <div class="field"><label>形</label><select id="shape"><option value="floor">横ブロック：横長・横書き</option><option value="wall">縦ブロック：縦長・縦書き</option><option value="normal">小ブロック：通常</option></select></div>
+    <div class="field"><label>色</label><select id="color"><option value="c1">緑</option><option value="c2">青</option><option value="c3">黄</option></select></div>
+    <div class="field"><label>下線部・要約表示</label><input id="shortText" placeholder="例：家族は心理的拠り所" /></div>
+    <div class="field"><label>全文</label><textarea id="fullText" placeholder="本文の命題を入力"></textarea></div>
+    <div class="toolbar"><button id="applyEdit" class="primary">反映</button><button id="deleteBlock">選択ブロック削除</button></div>
+    <div class="field"><label>接続線の説明（選択中の接続）</label><input id="linkLabel" placeholder="例：孤独が不安を生むから" /></div>
+    <div class="toolbar"><button id="applyLinkLabel">線の説明を反映</button><button id="deleteLink">選択した線を削除</button></div>
+    <p class="muted">接続線は、根拠→主張の向きで作る想定です。ブロックをダブルクリックすると、そのブロックだけ全文/下線部が切り替わります。ブロック右下のつまみをドラッグすると、大きさを変えられます。</p>
+  </aside>
+  <main><div id="canvas"><div id="chainNote" class="chainNote">連鎖モード ON：接続関係と位置から「主張／根拠」を自動表示</div><svg id="wires"></svg></div></main>
+</div>
+<div class="modal" id="modal"><div class="modal-inner"><h3 id="modalTitle">保存データ</h3><p class="muted">コピーして保存、または貼り付けて読み込みできます。</p><textarea id="dataBox"></textarea><div class="toolbar"><button id="modalOk" class="primary">OK</button><button id="modalClose">閉じる</button></div></div></div>
+<script>
+let blocks=[], links=[], selectedBlock=null, selectedLink=null, linkMode=false, linkStart=null, showAll=false, chainMode=false;
+const GRID=24, BLOCK_UNIT=96;
+const canvas=document.getElementById('canvas'), svg=document.getElementById('wires');
+const $=id=>document.getElementById(id);
+function uid(){return 'b'+Math.random().toString(36).slice(2,9)}
+function snapTo(n,step=GRID){return Math.round(Number(n||0)/step)*step}
+function snapWidth(n){return Math.max(BLOCK_UNIT,Math.round(Number(n||BLOCK_UNIT)/BLOCK_UNIT)*BLOCK_UNIT)}
+function snapHeight(n){return Math.max(GRID*3,Math.round(Number(n||GRID*3)/GRID)*GRID)}
+function defaultSize(b){
+  if(b.type==='final')return {w:BLOCK_UNIT*2,h:GRID*4};
+  if(b.shape==='wall')return {w:BLOCK_UNIT,h:GRID*6};
+  if(b.shape==='normal')return {w:BLOCK_UNIT,h:GRID*3};
+  return {w:BLOCK_UNIT*2,h:GRID*3};
+}
+function normalizeBlock(b){
+  const d=defaultSize(b);
+  b.x=snapTo(b.x??80); b.y=snapTo(b.y??80);
+  b.w=snapWidth(b.w||d.w); b.h=snapHeight(b.h||d.h);
+}
+function buildStuds(b){
+  if(b.type==='final')return '';
+  const w=b.w||defaultSize(b).w;
+  const gridCount=Math.round(w/GRID);
+  let html='<span class="studs">';
+  // 両端の点を除き、1点おきに円柱を置く。幅は96px単位なので円柱数は必ず偶数。
+  for(let i=1;i<gridCount;i+=2){html+=`<span class="stud" style="left:${i*GRID}px"></span>`;}
+  html+='</span>';
+  return html;
+}
+function addBlock(data={}){const b={id:uid(),type:data.type||'reason',shape:data.shape||'floor',color:data.color||'c1',short:data.short||'新しいブロック',full:data.full||'',x:data.x??72,y:data.y??72,w:data.w||null,h:data.h||null};normalizeBlock(b);blocks.push(b);render();selectBlock(b.id)}
+function render(){document.querySelectorAll('.block').forEach(e=>e.remove());blocks.forEach(b=>{normalizeBlock(b);const el=document.createElement('div');el.className='block '+b.type+' '+(b.color||'c0')+' '+(b.type==='final'?'':(b.shape||'floor'))+(selectedBlock===b.id?' selected':'')+(showAll?' showFull':'')+chainRoleClass(b)+contactClass(b);el.dataset.id=b.id;el.style.left=b.x+'px';el.style.top=b.y+'px';el.style.width=b.w+'px';el.style.height=b.h+'px';el.innerHTML=`${buildStuds(b)}<span class="badge">${chainBadge(b)}</span><span class="short">${esc(b.short||'(未入力)')}</span><span class="full">${esc(b.full||b.short||'(未入力)')}</span><span class="resizer"></span>`;canvas.appendChild(el);customResize(el,b);drag(el,b);el.onclick=e=>{e.stopPropagation(); rememberBlockSize(el,b); if(linkMode){handleLinkClick(b.id)} else selectBlock(b.id)};el.ondblclick=e=>{e.stopPropagation();rememberBlockSize(el,b);el.classList.toggle('showFull')};});drawLinks()}
+function labelType(t){return {reason:'根拠',claim:'主張',final:'屋根'}[t]||t}
+function isUpper(a,b){return blockCenterY(a) < blockCenterY(b)}
+function roleInfo(b){
+  if(!chainMode)return {claim:false,reason:false};
+  let claim=false, reason=false;
+  links.forEach(l=>{
+    const a=blocks.find(x=>x.id===l.from), c=blocks.find(x=>x.id===l.to);
+    if(!a||!c)return;
+    const upper=isUpper(a,c)?a:c;
+    const lower=upper.id===a.id?c:a;
+    if(b.id===upper.id) claim=true;
+    if(b.id===lower.id) reason=true;
+  });
+  return {claim,reason};
+}
+function chainRoleClass(b){
+  if(!chainMode)return '';
+  const r=roleInfo(b);
+  if(r.claim && r.reason)return ' role-claim role-reason';
+  if(r.claim)return ' role-claim';
+  if(r.reason)return ' role-reason';
+  return '';
+}
+function alphaName(n){
+  let s='';
+  n++;
+  while(n>0){const r=(n-1)%26;s=String.fromCharCode(65+r)+s;n=Math.floor((n-1)/26)}
+  return s;
+}
+function blockCenterY(b){
+  const el=document.querySelector(`[data-id="${b.id}"]`);
+  const h=el?el.offsetHeight:(b.h||70);
+  return b.y+h/2;
+}
+function blockCenterX(b){
+  const el=document.querySelector(`[data-id="${b.id}"]`);
+  const w=el?el.offsetWidth:(b.w||140);
+  return b.x+w/2;
+}
+function lineOrderX(b){
+  const related=links.filter(l=>l.from===b.id||l.to===b.id);
+  if(!related.length)return blockCenterX(b);
+  const xs=related.map(l=>{
+    const a=blocks.find(x=>x.id===l.from), c=blocks.find(x=>x.id===l.to);
+    if(!a||!c)return blockCenterX(b);
+    return (blockCenterX(a)+blockCenterX(c))/2;
+  });
+  return xs.reduce((sum,x)=>sum+x,0)/xs.length;
+}
+function levelMap(){
+  const sorted=[...blocks].sort((a,b)=>blockCenterY(a)-blockCenterY(b) || lineOrderX(a)-lineOrderX(b));
+  const levels=[];
+  const threshold=110;
+  sorted.forEach(b=>{
+    const cy=blockCenterY(b);
+    let lv=levels.find(g=>Math.abs(g.cy-cy)<threshold);
+    if(!lv){lv={cy,items:[]};levels.push(lv);}
+    lv.items.push(b);
+    lv.cy=lv.items.reduce((sum,x)=>sum+blockCenterY(x),0)/lv.items.length;
+  });
+  levels.sort((a,b)=>a.cy-b.cy);
+  const map={};
+  levels.forEach((lv,idx)=>{
+    lv.items.sort((a,b)=>lineOrderX(a)-lineOrderX(b) || blockCenterX(a)-blockCenterX(b));
+    lv.items.forEach((b,j)=>{map[b.id]=String(idx+1)+alphaName(j)});
+  });
+  return map;
+}
+function chainBadge(b){
+  if(!chainMode)return labelType(b.type);
+  const coords=levelMap();
+  const r=roleInfo(b);
+  const parts=[];
+  if(r.claim) parts.push('主張'+(coords[b.id]||''));
+  if(r.reason) parts.push('根拠'+(coords[b.id]||''));
+  return parts.length?parts.join('/') : labelType(b.type);
+}
+
+function contactClass(b){
+  const rb=rectGuess(b);
+  let top=false,bottom=false;
+  blocks.forEach(o=>{
+    if(o.id===b.id)return;
+    const ro=rectGuess(o);
+    const overlapX=Math.min(rb.x+rb.w,ro.x+ro.w)-Math.max(rb.x,ro.x);
+    if(overlapX < GRID)return;
+    if(Math.abs((ro.y+ro.h)-rb.y)<=1) top=true;
+    if(Math.abs((rb.y+rb.h)-ro.y)<=1) bottom=true;
+  });
+  return (top?' noStuds connectedTop':'')+(bottom?' connectedBottom':'');
+}
+function rectGuess(b){
+  const el=document.querySelector(`[data-id="${b.id}"]`);
+  if(el)return {x:b.x,y:b.y,w:el.offsetWidth,h:el.offsetHeight};
+  const d=defaultSize(b);
+  const w=b.w||d.w;
+  const h=b.h||d.h;
+  return {x:b.x,y:b.y,w,h};
+}
+
+function esc(s){return String(s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}
+function selectBlock(id){selectedBlock=id;selectedLink=null;const b=blocks.find(x=>x.id===id);if(b){$('type').value=b.type;$('shape').value=b.shape||'floor';$('color').value=b.color||'c0';$('shortText').value=b.short;$('fullText').value=b.full;$('linkLabel').value=''}render()}
+canvas.onclick=()=>{selectedBlock=null;selectedLink=null;render();}
+function isResizeCorner(e,el){const r=el.getBoundingClientRect();return (r.right-e.clientX<22 && r.bottom-e.clientY<22)}
+function rememberBlockSize(el,b){
+  if(!el||!b)return;
+  b.w=snapWidth(el.offsetWidth);
+  b.h=snapHeight(el.offsetHeight);
+  b.x=snapTo(b.x); b.y=snapTo(b.y);
+}
+function rememberSelectedSize(){
+  if(!selectedBlock)return;
+  const el=document.querySelector(`[data-id="${selectedBlock}"]`);
+  const b=blocks.find(x=>x.id===selectedBlock);
+  rememberBlockSize(el,b);
+}
+function customResize(el,b){
+  const handle=el.querySelector('.resizer');
+  if(!handle)return;
+  handle.onmousedown=e=>{
+    e.stopPropagation();e.preventDefault();
+    const startX=e.clientX,startY=e.clientY;
+    const startW=el.offsetWidth,startH=el.offsetHeight;
+    document.onmousemove=ev=>{
+      const minW=BLOCK_UNIT;
+      const minH=GRID*3;
+      b.w=Math.max(minW,snapWidth(startW+ev.clientX-startX));
+      b.h=Math.max(minH,snapHeight(startH+ev.clientY-startY));
+      el.style.width=b.w+'px';
+      el.style.height=b.h+'px';
+      drawLinks();
+    };
+    document.onmouseup=()=>{
+      rememberBlockSize(el,b);
+      document.onmousemove=null;document.onmouseup=null;
+      render();
+    };
+  };
+}
+function drag(el,b){let ox,oy,down=false;el.onmousedown=e=>{if(linkMode||isResizeCorner(e,el))return;down=true;ox=e.clientX-b.x;oy=e.clientY-b.y;document.onmousemove=ev=>{if(!down)return;b.x=snapTo(ev.clientX-ox);b.y=snapTo(ev.clientY-oy);el.style.left=b.x+'px';el.style.top=b.y+'px';drawLinks()};document.onmouseup=()=>{down=false;b.x=snapTo(b.x);b.y=snapTo(b.y);document.onmousemove=null;document.onmouseup=null;render()};}}
+function rectOf(b){
+  const el=document.querySelector(`[data-id="${b.id}"]`);
+  if(!el)return {x:b.x,y:b.y,w:b.w||140,h:b.h||70};
+  const r=el.getBoundingClientRect(), c=canvas.getBoundingClientRect();
+  return {x:r.left-c.left,y:r.top-c.top,w:r.width,h:r.height};
+}
+function edgePoint(from,to){
+  const a=rectOf(from), b=rectOf(to);
+  const ax=a.x+a.w/2, ay=a.y+a.h/2, bx=b.x+b.w/2, by=b.y+b.h/2;
+  const dx=bx-ax, dy=by-ay;
+  const adx=Math.abs(dx), ady=Math.abs(dy);
+  if(adx/a.w > ady/a.h){
+    return {x: ax + Math.sign(dx)*a.w/2, y: ay + dy*(a.w/2)/(adx||1)};
+  }
+  return {x: ax + dx*(a.h/2)/(ady||1), y: ay + Math.sign(dy)*a.h/2};
+}
+function drawLinks(){
+  svg.querySelectorAll('.wire,.wire-label').forEach(e=>e.remove());
+  links.forEach((l,i)=>{
+    const a=blocks.find(b=>b.id===l.from), b=blocks.find(b=>b.id===l.to);if(!a||!b)return;
+    const p1=edgePoint(a,b), p2=edgePoint(b,a);
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',p1.x);line.setAttribute('y1',p1.y);line.setAttribute('x2',p2.x);line.setAttribute('y2',p2.y);
+    line.setAttribute('class','wire');
+    line.style.stroke=selectedLink===i?'#c44':'#5c544b';
+    line.onclick=e=>{e.stopPropagation();selectedLink=i;selectedBlock=null;$('linkLabel').value=l.label||'';render()};
+    line.style.pointerEvents='stroke';
+    svg.appendChild(line);
+    if(l.label){const text=document.createElementNS('http://www.w3.org/2000/svg','text');text.setAttribute('x',(p1.x+p2.x)/2);text.setAttribute('y',(p1.y+p2.y)/2-8);text.setAttribute('class','wire-label');text.textContent=l.label;svg.appendChild(text)}
+  })
+}
+function handleLinkClick(id){if(!linkStart){linkStart=id;alert('接続先の主張ブロックをクリックしてください')}else if(linkStart!==id){links.push({from:linkStart,to:id,label:''});linkMode=false;linkStart=null;$('addLink').textContent='接続する';render()} }
+$('addBlock').onclick=()=>addBlock();
+$('applyEdit').onclick=()=>{if(!selectedBlock)return;rememberSelectedSize();const b=blocks.find(x=>x.id===selectedBlock);b.type=$('type').value;b.shape=$('shape').value;b.color=$('color').value;b.short=$('shortText').value;b.full=$('fullText').value;render()};
+$('deleteBlock').onclick=()=>{if(!selectedBlock)return;blocks=blocks.filter(b=>b.id!==selectedBlock);links=links.filter(l=>l.from!==selectedBlock&&l.to!==selectedBlock);selectedBlock=null;render()};
+$('addLink').onclick=()=>{linkMode=!linkMode;linkStart=null;$('addLink').textContent=linkMode?'接続中…解除':'接続する'};
+$('chainModeBtn').onclick=()=>{chainMode=!chainMode;$('chainModeBtn').textContent=chainMode?'連鎖させる：ON':'連鎖させる：OFF';$('chainNote').classList.toggle('on',chainMode);render()};
+$('toggleAll').onclick=()=>{showAll=!showAll;render()};
+$('applyLinkLabel').onclick=()=>{if(selectedLink===null)return;links[selectedLink].label=$('linkLabel').value;render()};
+$('deleteLink').onclick=()=>{if(selectedLink===null)return;links.splice(selectedLink,1);selectedLink=null;render()};
+$('clearBtn').onclick=()=>{if(confirm('全て消しますか？')){blocks=[];links=[];render()}};
+$('autoHouse').onclick=()=>{const w=canvas.clientWidth;const finals=blocks.filter(b=>b.type==='final'), claims=blocks.filter(b=>b.type==='claim'), reasons=blocks.filter(b=>b.type==='reason');function row(arr,y){const gap=BLOCK_UNIT*2, start=snapTo(w/2-(arr.length-1)*gap/2);arr.forEach((b,i)=>{normalizeBlock(b);b.x=snapTo(start+i*gap-b.w/2);b.y=snapTo(y)})}row(finals,48);row(claims,192);row(reasons,336);render()};
+$('exportBtn').onclick=()=>{openModal('保存データ',JSON.stringify({blocks,links},null,2),'export')};
+$('importBtn').onclick=()=>{openModal('読み込み','', 'import')};
+function openModal(title,text,mode){$('modalTitle').textContent=title;$('dataBox').value=text;$('modal').style.display='flex';$('modalOk').onclick=()=>{if(mode==='import'){try{const d=JSON.parse($('dataBox').value);blocks=(d.blocks||[]).map(b=>{const nb={...b,type:b.type==='connector'?'reason':b.type};normalizeBlock(nb);return nb});links=d.links||[];render();$('modal').style.display='none'}catch(e){alert('読み込みに失敗しました')}}else{$('dataBox').select();document.execCommand('copy');alert('コピーしました')}}}
+$('modalClose').onclick=()=>$('modal').style.display='none';
+addBlock({type:'reason',shape:'wall',color:'c2',short:'近代社会では共同体が崩壊',full:'近代社会では、宗教は衰退し、共同体は崩壊している。',x:72,y:336});
+addBlock({type:'reason',shape:'wall',color:'c1',short:'人々は孤独と不安に直面',full:'そこで、人々は孤独を感じ、生きていることへの不安に直面する。',x:288,y:336});
+addBlock({type:'claim',shape:'floor',color:'c3',short:'家族は心理的拠り所',full:'この存在論的不安を解消する手段として、身近な家族が重要である。',x:192,y:192});
+addBlock({type:'final',color:'c3',short:'家族化するペット',full:'心理的拠り所としての家族の重要性が増す中で、ペットも家族化している。',x:216,y:48});
+links.push({from:blocks[0].id,to:blocks[2].id,label:'不安の背景'});links.push({from:blocks[1].id,to:blocks[2].id,label:'必要性'});links.push({from:blocks[2].id,to:blocks[3].id,label:'文章全体へ'});render();
+</script>
+</body>
+</html>
