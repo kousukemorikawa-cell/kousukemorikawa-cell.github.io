@@ -153,7 +153,7 @@
     line-height:1.25;
   }
   .block.final .badge{
-    top:54px;
+    top:-14px;
     left:50%;
     transform:translateX(-50%);
   }
@@ -187,6 +187,10 @@
   }
   .block.unlinkPicked .badge{background:#e53935!important;color:#fff!important;}
   .block.unlinkModeHover{cursor:pointer!important;}
+  .block.unlinkPicked.firstPick,.block.linkPicked.firstPick{outline:6px solid #e53935!important;box-shadow:0 0 0 7px #e5393533,inset 0 -5px 0 #00000014,0 3px 0 #00000020,0 6px 12px #00000018!important;}
+  .block.unlinkPicked.secondPick,.block.linkPicked.secondPick{outline:6px solid #2563eb!important;box-shadow:0 0 0 7px #2563eb33,inset 0 -5px 0 #00000014,0 3px 0 #00000020,0 6px 12px #00000018!important;}
+  .block.linkPicked{z-index:4;}
+  .block.unlinkPicked.secondPick .badge,.block.linkPicked.secondPick .badge{background:#2563eb!important;color:#fff!important;}
   .unlink-active{
     background:#e53935!important;
     color:#fff!important;
@@ -230,13 +234,13 @@
     <div class="field"><label>接続線の説明（選択中の接続）</label><input id="linkLabel" placeholder="例：孤独が不安を生むから" /></div>
     <div class="toolbar"><button id="applyLinkLabel">線の説明を反映</button><button id="deleteLink">選択した線を削除</button></div>
     <div class="toolbar"><button id="unlinkSelectSide">接続解除を選ぶ</button><button id="unlinkDoSide" class="danger">選んだ接続を解除</button></div>
-    <p class="muted">接続解除は、2つのブロックを赤く選んでから解除します。接続線は、根拠→主張の向きで作る想定です。ブロックをダブルクリックすると、そのブロックだけ全文/下線部が切り替わります。ブロック右下のつまみをドラッグすると、大きさを変えられます。</p>
+    <p class="muted">接続・接続解除では、1つ目が赤枠、2つ目が青枠で表示されます。接続解除は、2つのブロックを選んでから解除します。接続線は、根拠→主張の向きで作る想定です。ブロックをダブルクリックすると、そのブロックだけ全文/下線部が切り替わります。ブロック右下のつまみをドラッグすると、大きさを変えられます。</p>
   </aside>
   <main><div id="canvas"><div id="chainNote" class="chainNote">連鎖モード ON：接続関係と位置から「主張／根拠」を自動表示</div><svg id="wires"></svg></div></main>
 </div>
 <div class="modal" id="modal"><div class="modal-inner"><h3 id="modalTitle">保存データ</h3><p class="muted">コピーして保存、または貼り付けて読み込みできます。</p><textarea id="dataBox"></textarea><div class="toolbar"><button id="modalOk" class="primary">OK</button><button id="modalClose">閉じる</button></div></div></div>
 <script>
-let blocks=[], links=[], selectedBlock=null, selectedLink=null, linkMode=false, linkStart=null, unlinkMode=false, unlinkPicked=[], showAll=false, chainMode=false;
+let blocks=[], links=[], selectedBlock=null, selectedLink=null, linkMode=false, linkStart=null, linkPicked=[], unlinkMode=false, unlinkPicked=[], showAll=false, chainMode=false;
 const GRID=24, BLOCK_UNIT=96;
 const canvas=document.getElementById('canvas'), svg=document.getElementById('wires');
 const $=id=>document.getElementById(id);
@@ -266,7 +270,7 @@ function buildStuds(b){
   return html;
 }
 function addBlock(data={}){const b={id:uid(),type:data.type||'reason',shape:data.shape||'floor',color:data.color||'c1',short:data.short||'新しいブロック',full:data.full||'',x:data.x??72,y:data.y??72,w:data.w||null,h:data.h||null};normalizeBlock(b);blocks.push(b);render();selectBlock(b.id)}
-function render(){document.querySelectorAll('.block').forEach(e=>e.remove());blocks.forEach(b=>{normalizeBlock(b);const el=document.createElement('div');el.className='block '+b.type+' '+(b.color||'c0')+' '+(b.type==='final'?'':(b.shape||'floor'))+(selectedBlock===b.id?' selected':'')+(unlinkPicked.includes(b.id)?' unlinkPicked':'')+(unlinkMode?' unlinkModeHover':'')+(showAll?' showFull':'')+chainRoleClass(b)+contactClass(b);el.dataset.id=b.id;el.style.left=b.x+'px';el.style.top=b.y+'px';el.style.width=b.w+'px';el.style.height=b.h+'px';el.innerHTML=`${buildStuds(b)}<span class="badge">${chainBadge(b)}</span><span class="short">${esc(b.short||'(未入力)')}</span><span class="full">${esc(b.full||b.short||'(未入力)')}</span><span class="resizer"></span>`;canvas.appendChild(el);customResize(el,b);drag(el,b);el.onclick=e=>{e.stopPropagation(); rememberBlockSize(el,b); if(linkMode){handleLinkClick(b.id)} else if(unlinkMode){handleUnlinkPick(b.id)} else selectBlock(b.id)};el.ondblclick=e=>{e.stopPropagation();rememberBlockSize(el,b);el.classList.toggle('showFull')};});drawLinks()}
+function render(){document.querySelectorAll('.block').forEach(e=>e.remove());blocks.forEach(b=>{normalizeBlock(b);const el=document.createElement('div');el.className='block '+b.type+' '+(b.color||'c0')+' '+(b.type==='final'?'':(b.shape||'floor'))+(selectedBlock===b.id?' selected':'')+(unlinkPicked.includes(b.id)?' unlinkPicked '+(unlinkPicked[0]===b.id?'firstPick':'secondPick'):'')+(linkPicked.includes(b.id)?' linkPicked '+(linkPicked[0]===b.id?'firstPick':'secondPick'):'')+(unlinkMode?' unlinkModeHover':'')+(showAll?' showFull':'')+chainRoleClass(b)+contactClass(b);el.dataset.id=b.id;el.style.left=b.x+'px';el.style.top=b.y+'px';el.style.width=b.w+'px';el.style.height=b.h+'px';el.innerHTML=`${buildStuds(b)}<span class="badge">${chainBadge(b)}</span><span class="short">${esc(b.short||'(未入力)')}</span><span class="full">${esc(b.full||b.short||'(未入力)')}</span><span class="resizer"></span>`;canvas.appendChild(el);customResize(el,b);drag(el,b);el.onclick=e=>{e.stopPropagation(); rememberBlockSize(el,b); if(linkMode){handleLinkClick(b.id)} else if(unlinkMode){handleUnlinkPick(b.id)} else selectBlock(b.id)};el.ondblclick=e=>{e.stopPropagation();rememberBlockSize(el,b);el.classList.toggle('showFull')};});drawLinks()}
 function labelType(t){return {reason:'根拠',claim:'主張',final:'主張'}[t]||t}
 function isUpper(a,b){return blockCenterY(a) < blockCenterY(b)}
 function roleInfo(b){
@@ -458,7 +462,7 @@ function updateUnlinkButtons(){
 }
 function setUnlinkMode(on){
   unlinkMode=on;
-  if(on){linkMode=false;linkStart=null;$('addLink').textContent='接続する';selectedBlock=null;selectedLink=null;}
+  if(on){linkMode=false;linkStart=null;linkPicked=[];$('addLink').textContent='接続する';selectedBlock=null;selectedLink=null;}
   else{unlinkPicked=[];}
   updateUnlinkButtons();
   render();
@@ -482,11 +486,15 @@ function removePickedLink(){
   unlinkPicked=[];unlinkMode=false;selectedLink=null;selectedBlock=null;updateUnlinkButtons();render();
 }
 
-function handleLinkClick(id){if(!linkStart){linkStart=id;alert('接続先の主張ブロックをクリックしてください')}else if(linkStart!==id){links.push({from:linkStart,to:id,label:''});linkMode=false;linkStart=null;$('addLink').textContent='接続する';render()} }
+function handleLinkClick(id){
+  if(!linkStart){linkStart=id;linkPicked=[id];render();alert('接続先の主張ブロックをクリックしてください');return;}
+  if(linkStart===id)return;
+  linkPicked=[linkStart,id];links.push({from:linkStart,to:id,label:''});linkMode=false;linkStart=null;$('addLink').textContent='接続する';render();
+}
 $('addBlock').onclick=()=>addBlock();
 $('applyEdit').onclick=()=>{if(!selectedBlock)return;rememberSelectedSize();const b=blocks.find(x=>x.id===selectedBlock);b.type=$('type').value;b.shape=$('shape').value;b.color=$('color').value;b.short=$('shortText').value;b.full=$('fullText').value;render()};
 $('deleteBlock').onclick=()=>{if(!selectedBlock)return;blocks=blocks.filter(b=>b.id!==selectedBlock);links=links.filter(l=>l.from!==selectedBlock&&l.to!==selectedBlock);selectedBlock=null;render()};
-$('addLink').onclick=()=>{linkMode=!linkMode;linkStart=null;if(linkMode){unlinkMode=false;unlinkPicked=[];}updateUnlinkButtons();$('addLink').textContent=linkMode?'接続中…解除':'接続する';render()};
+$('addLink').onclick=()=>{linkMode=!linkMode;linkStart=null;linkPicked=[];if(linkMode){unlinkMode=false;unlinkPicked=[];}updateUnlinkButtons();$('addLink').textContent=linkMode?'接続中…解除':'接続する';render()};
 $('unlinkSelect').onclick=()=>setUnlinkMode(!unlinkMode);
 $('unlinkDo').onclick=()=>removePickedLink();
 $('unlinkSelectSide').onclick=()=>setUnlinkMode(!unlinkMode);
@@ -495,7 +503,7 @@ $('chainModeBtn').onclick=()=>{chainMode=!chainMode;$('chainModeBtn').textConten
 $('toggleAll').onclick=()=>{showAll=!showAll;render()};
 $('applyLinkLabel').onclick=()=>{if(selectedLink===null)return;links[selectedLink].label=$('linkLabel').value;render()};
 $('deleteLink').onclick=()=>{if(selectedLink===null)return;links.splice(selectedLink,1);selectedLink=null;render()};
-$('clearBtn').onclick=()=>{if(confirm('全て消しますか？')){blocks=[];links=[];render()}};
+$('clearBtn').onclick=()=>{if(confirm('全て消しますか？')){blocks=[];links=[];linkPicked=[];unlinkPicked=[];render()}};
 $('autoHouse').onclick=()=>{const w=canvas.clientWidth;const finals=blocks.filter(b=>b.type==='final'), claims=blocks.filter(b=>b.type==='claim'), reasons=blocks.filter(b=>b.type==='reason');function row(arr,y){const gap=BLOCK_UNIT*2, start=snapTo(w/2-(arr.length-1)*gap/2);arr.forEach((b,i)=>{normalizeBlock(b);b.x=snapTo(start+i*gap-b.w/2);b.y=snapTo(y)})}row(finals,48);row(claims,192);row(reasons,336);render()};
 $('exportBtn').onclick=()=>{openModal('保存データ',JSON.stringify({blocks,links},null,2),'export')};
 $('importBtn').onclick=()=>{openModal('読み込み','', 'import')};
